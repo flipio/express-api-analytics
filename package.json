@@ -1,0 +1,28 @@
+{
+  "name": "express-api-analitycs",
+  "version": "0.0.0",
+  "description": "API analytics for expressjs framework",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "analytics",
+    "nodejs",
+    "expressjs",
+    "api"
+  ],
+  "author": "Filip Jelic <jelic.filip@gmail.com> (http://www.filipjelic.com/)",
+  "license": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/brentertz/scapegoat/blob/master/LICENSE-MIT"
+    }
+  ],
+  "dependencies": {
+    "express-useragent": "^0.1.6",
+    "lodash": "^3.5.0",
+    "mongodb": "^1.4.35",
+    "q": "^1.2.0"
+  }
+}
