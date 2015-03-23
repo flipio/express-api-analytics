@@ -60,9 +60,19 @@ var initEmptyDbObj = function () {
 	DataStore.Type = {};
 	DataStore.Path = {};
 	DataStore.Language = {};
+	DataStore.Api = {};
 };
 
 initEmptyDbObj();
+
+var _checkType = function (agent) {
+    if (agent.isMobile === true) {
+        return 'mobile';
+    }
+    else {
+        return 'desktop';
+    }
+};
 
 /**
  * Express Middleware that parses every request
@@ -71,28 +81,22 @@ var middleware = function (req, res, next) {
 
 	if (_.include(req.url, ".")) {
 		next();
-	}
-
-	else {
-
-		if (req.headers['user-agent'] !== undefined) {
+	} else {
+        
+        if (_.includes(req.originalUrl, 'api/')) {
+            // API call separately
+            trackApiCall(req.get('host') + req.originalUrl);
+        }
+        
+		if (typeof req.headers['user-agent'] !== 'undefined') {
 
 			var ua = useragent.parse(req.headers['user-agent']);
 
-			if (req.headers['accept-language'] === undefined) {
+			if (typeof req.headers['accept-language'] === 'undefined') {
 				req.headers['accept-language'] = 'unknown';
 			}
 
-			function checkType () {
-				if (ua.isMobile === true) {
-					return 'mobile';
-				}
-				else {
-					return 'desktop';
-				}
-			}
-
-			records(ua.Browser, ua.Platform, checkType(), req._parsedUrl['path'], req.headers['accept-language'].split(',')[0]);
+			records(ua.Browser, ua.Platform, _checkType(ua), req._parsedUrl['path'], req.headers['accept-language'].split(',')[0]);
 
 		}
 
@@ -126,23 +130,40 @@ function records (browser, platform, type, path, language) {
 	DataStore.Language[language] = {
 		'views': counter(language, 'Language')
 	};
-
+    
     DataStore.overall = {
         'views': pageViews++
     };
 
 }
 
+function trackApiCall(url) {
+    
+    if (typeof DataStore.Api[url] === 'undefined') {
+        DataStore.Api[url] = {
+            views: 0
+        }
+    }
+
+    DataStore.Api[url].views++;
+}
+
 /**
  * Counter
  */
 function counter (index, root) {
-
+    
 	if (typeof DataStore[root][index] === 'undefined') {
 		return 1;
 	} else {
-		DataStore[root][index].views++;
-		return DataStore[root][index].views++;
+        
+        console.log("From API Analytics: Old Value for '%s.%s' is %s", root, index, DataStore[root][index]);
+        
+        DataStore[root][index].views++;
+
+        console.log("From API Analytics: New Value for '%s.%s' is %s", root, index, DataStore[root][index]);
+        
+		return DataStore[root][index].views;
 	}
 
 }
@@ -151,12 +172,28 @@ var _updateStats = function (data) {
 
     _.forEach(DataStore, function (obj, type) {
         if (type === 'overall') {
-            
+
+            if (typeof data[type] !== 'object') {
+                console.log('Trying to update obj that doesn\'t exist: ', type);
+                data[type] = {views: 0};
+            }
+
             data[type].views += obj.views;
-            
+
+
         } else {
             
             _.forEach(obj, function (o, key) {
+                
+                if (typeof data[type] !== 'object') {
+                    console.log('Trying to update obj that doesn\'t exist: ', type);
+                    data[type] = {};
+                }
+                
+                if (typeof data[type][key] !== 'object') {
+                    data[type][key] = {views: 0};
+                }
+
                 data[type][key].views += o.views;
             });
 
@@ -176,8 +213,12 @@ var save = function () {
     Helper.connectMongo(Config.mongo.db).then(function (dbObj) {
 
         Helper.getCollection(dbObj, Config.db.collection).then(function (collection) {
+            var data, 
+                value = collection[0];
             
-            var data = _updateStats(collection[0], DataStore);
+            if (value) {
+                data = _updateStats(value, DataStore);
+            }
             
             Helper.updateCollection(dbObj, Config.db.collection, _.clone(data, true));
             
@@ -215,7 +256,7 @@ var flush = function() {
 	delete DataStore.Language;
 	
 	initEmptyDbObj();
-	console.log('Internal Object data store flushed.');
+	console.log('Api Analytics: Internal Object data store flushed.');
 
 };
 
